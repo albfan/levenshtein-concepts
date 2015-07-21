@@ -411,7 +411,6 @@ public class ColorMix {
         final JTextField field = new JTextField();
         field.setEditable(false);
         slider.addChangeListener(new ChangeListener() {
-            @Override
             public void stateChanged(ChangeEvent e) {
                 field.setText(String.valueOf(slider.getValue()));
             }

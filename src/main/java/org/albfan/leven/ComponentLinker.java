@@ -1,17 +1,15 @@
 package org.albfan.leven;
 
-import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.geom.Rectangle2D;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.MouseInputAdapter;
 
-public class ComponentLinkerTest
+public class ComponentLinker
 {
   public static void main(String[] args)
   {
@@ -25,29 +23,36 @@ public class ComponentLinkerTest
     frame.setGlassPane(linker);
     linker.setVisible(true);
 
+
+    MouseInputAdapter m = new MouseInputAdapter() {
+
+      public void mousePressed(MouseEvent event) {
+        linker.setCurrent(event);
+      }
+    };
+
     JPanel content = new JPanel();
     int rows = 10;
     int cols = 5;
     content.setLayout(new GridLayout(rows, cols, 5, 5));
     content.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-    
-    ActionListener actionListener = new ActionListener() {
-  	private JButton last = null;
-      public void actionPerformed(ActionEvent e) {
-    	JButton source = (JButton) e.getSource();
-        if (last != null) {
-		linker.link(last, source);
-        }
-        last = source;
-      }
-    };
+    ActionListener actionListener = linker.getLinkerListener();
 
     for (int i = 0; i < rows * cols; i++) {
       JButton button = new JButton("Button" + i);
       button.addActionListener(actionListener);
+      button.addMouseListener(m);
       content.add(button);
     }
+    final JCheckBox check = new JCheckBox("allow add");
+    check.addItemListener(new ItemListener() {
+      public void itemStateChanged(ItemEvent e) {
+        linker.setAllowAdd(check.isSelected());
+      }
+    });
+    check.setSelected(true);
+    content.add(check);
     frame.add(content);
 
     frame.pack();

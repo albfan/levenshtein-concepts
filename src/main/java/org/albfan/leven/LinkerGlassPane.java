@@ -2,19 +2,13 @@ package org.albfan.leven;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.Rectangle2D;
 import java.util.Vector;
 import javax.swing.JComponent;
-import javax.swing.JRootPane;
 
 /**
  * GlassPane with links between underliying components
@@ -22,34 +16,40 @@ import javax.swing.JRootPane;
  * Date: 12/12/12
  * Time: 8:36
  */
-public class LinkerGlassPane extends JComponent {
-    private Vector<JComponent> linked;
+public abstract class LinkerGlassPane<T> extends JComponent {
+    private Vector<T> linked;
     private int current=-1;
 
-    boolean allowAdd;
+    boolean allowEdit;
 
     int SIZE = 10;
 
     int RADIUS = 6;
+    private Color LINE_COLOR = new Color(0, 0, 0, 0.3f);
+    private Color POINT_COLOR = new Color(0, 0, 1, 0.6f);
+    private Color LINE_POINT_COLOR = new Color(0, 0, 1, 0.3f).darker().darker();
+    private Color POINT_CURRENT_COLOR = new Color(1, 0, 0, 0.6f);
+    private Color LINE_POINT_CURRENT_COLOR = new Color(1, 0, 0, 0.3f).darker().darker();
+    private int NO_SELECTION = -1;
 
     public LinkerGlassPane() {
-        linked = new Vector<JComponent>();
+        linked = new Vector<T>();
     }
 
-    public void link(JComponent comp) {
-        if (isAllowAdd()) {
+    public void link(T comp) {
+        if (!isAllowEdit()) {
             linked.add(comp);
             repaint();
         }
     }
 
-    public boolean isAllowAdd() {
-        return allowAdd;
+    public boolean isAllowEdit() {
+        return allowEdit;
     }
 
-    public void setAllowAdd(boolean allowAdd) {
-        this.allowAdd = allowAdd;
-        current = -1;
+    public void setAllowEdit(boolean allowEdit) {
+        this.allowEdit = allowEdit;
+        current = NO_SELECTION;
     }
 
     protected void paintComponent(Graphics g) {
@@ -58,90 +58,63 @@ public class LinkerGlassPane extends JComponent {
         g2d.setStroke(new BasicStroke(5.0F));
 
         if (linked.size() > 0) {
-            JComponent c1 = linked.get(0);
+            T c1 = linked.get(0);
             for (int i = 1; i < linked.size(); i++) {
-                JComponent c2 = linked.get(i);
-                Point p1 = getRectCenter(getBoundsInWindow(c1));
-                Point p2 = getRectCenter(getBoundsInWindow(c2));
-                g2d.setPaint(new Color(0, 0, 0, 0.3f));
+                T c2 = linked.get(i);
+                Point p1 = getPointFrom(c1);
+                Point p2 = getPointFrom(c2);
+                g2d.setPaint(LINE_COLOR);
                 g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
                 int x = p2.x - RADIUS;
                 int y = p2.y - RADIUS;
                 int w = 2 * RADIUS;
                 int h = w;
-                g2d.setColor(new Color(0, 0, 1, 0.6f));
+                Color point_color;
+                Color line_point_color;
+                if (i == current) {
+                    point_color = POINT_CURRENT_COLOR;
+                    line_point_color = LINE_POINT_CURRENT_COLOR;
+                } else {
+                    point_color = POINT_COLOR;
+                    line_point_color = LINE_POINT_COLOR;
+                }
+                g2d.setColor(point_color);
                 Ellipse2D.Double shape = new Ellipse2D.Double(x, y, w, h);
                 g2d.fill(shape);
-                g2d.setColor(new Color(0, 0, 1, 0.3f).darker().darker());
+                g2d.setColor(line_point_color);
                 g2d.draw(shape);
                 c1 = c2;
             }
         }
     }
 
-    private Point getRectCenter(Rectangle rect) {
-        return new Point(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    }
-
-    private Rectangle getBoundsInWindow(Component component) {
-        return getRelativeBounds(component, getRootPaneAncestor(component));
-    }
-
-    private Rectangle getRelativeBounds(Component component, Component relativeTo) {
-        return new Rectangle(getRelativeLocation(component, relativeTo), component.getSize());
-    }
-
-    private Point getRelativeLocation(Component component, Component relativeTo)
-    {
-        Point los = component.getLocationOnScreen();
-        Point rt = relativeTo.getLocationOnScreen();
-        return new Point(los.x - rt.x, los.y - rt.y);
-    }
-
-    private JRootPane getRootPaneAncestor(Component c) {
-        for (Container p = c.getParent(); p != null; p = p.getParent()) {
-            if ((p instanceof JRootPane)) {
-                return (JRootPane)p;
-            }
-        }
-        return null;
-    }
+    protected abstract Point getPointFrom(T t);
 
     public boolean contains(int x, int y) {
         return false;
     }
 
-    public ActionListener getLinkerListener() {
-        return new ActionListener() {
-            private JComponent last = null;
-            public void actionPerformed(ActionEvent e) {
-                JComponent source = (JComponent) e.getSource();
-                if (last != source) {
-                    link(source);
-                }
-                last = source;
-            }
-        };
-    }
+    public void setCurrent(T t) {
+        if (!isAllowEdit()) return;
 
-    public void setCurrent(MouseEvent event) {
         for (int i = 0; i < linked.size(); i++) {
-            if (linked.get(i) == event.getSource()) {
+            if (linked.get(i) == t) {
                 current = i;
-                return;
+                break;
             }
         }
-        if (current != -1 && linked.get(current) != event.getSource()) {
-            moveCurrent(event);
+        if (current != NO_SELECTION && linked.get(current) != t) {
+            moveCurrent(t);
+        } else {
+            repaint();
         }
     }
 
-    public void moveCurrent(MouseEvent event) {
-        if (current == -1) return;
+    public void moveCurrent(T t) {
+        if (current == NO_SELECTION) return;
 
-        JComponent comp = (JComponent) event.getSource();
-        if (comp != linked.get(current)) {
-            linked.set(current, comp);
+        if (!t.equals(linked.get(current))) {
+            linked.set(current, t);
             repaint();
         }
     }
